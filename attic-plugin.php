@@ -18,9 +18,15 @@ function csv_init(){
     csv_handle_post();
 ?>
     <h2>Please choose target csv file to upload.</h2>
-    <form  method="post" enctype="multipart/form-data">
+    <form id="target_form1" method="post" enctype="multipart/form-data">
         <input name="upload[]" type="file" multiple="multiple" />
         <?php submit_button('Upload') ?>
+    </form>
+    <h2>Or you can input target keyword and URL.</h2>
+    <form id="target_form2" method="post" enctype="multipart/form-data">
+        <input name="target_keyword" type="text" />
+        <input name="target_url" type="text" />
+        <?php submit_button('Submit') ?>
     </form>
 <?php
 }
@@ -48,6 +54,13 @@ function csv_handle_post(){
 	    //Upload the file into the temp dir
 	    if(move_uploaded_file($tmpFilePath, $newFilePath)) {}
 	  }
+	}
+	if (isset($_POST['target_keyword']) && isset($_POST['target_url']))
+	{
+		$val = array($_POST["target_keyword"], $_POST["target_url"]);
+		$fp = fopen(dirname(__FILE__)."/post/target.csv", "wb");
+		fputcsv($fp, $val);
+		fclose($fp);
 	}
 }
 
@@ -125,6 +138,13 @@ function add_custom_post($file_path, $file_name, $prev, $next) {
     	$file_content = $file_content. "<div><a href='http://localhost/wordpressTest'>$next</a></div>";
     if ($next != null && $prev != null)
     	$file_content = $file_content. "<div><a href='http://localhost/wordpressTest'>$prev</a></div><div><a href='http://localhost/wordpressTest'>$next</a></div>";
+
+    $csv = fopen(dirname(__FILE__). "/post/target.csv", 'r');
+	while (($line = fgetcsv($csv)) !== FALSE) {
+		$file_content = str_replace($line[0], "<a href='$line[1]'>$line[0]</a>", $file_content);
+	}
+	fclose($csv);
+
     $my_post = array(
 		'post_title'    => wp_strip_all_tags( "$file_name" ),
 		'post_content'  => "$file_content",
