@@ -5,6 +5,25 @@ Description: This is Attic plugin
 Author: Vasily Chigaev
 Version: 0.1
 */
+class Spintax
+{
+    public function process($text)
+    {
+        return preg_replace_callback(
+            '/\{(((?>[^\{\}]+)|(?R))*?)\}/x',
+            array($this, 'replace'),
+            $text
+        );
+    }
+
+    public function replace($text)
+    {
+        $text = $this->process($text[1]);
+        $parts = explode('|', $text);
+        return $parts[array_rand($parts)];
+    }
+}
+
 if (file_exists(dirname(__FILE__). "/post/target.csv"))
 	add_action('admin_menu', 'test_plugin_setup_menu');
 else
@@ -80,25 +99,28 @@ function test_init(){
 }
  
 function test_handle_post(){
-	//$files = array_filter($_FILES['upload']['name']);
-	$total = 0;
 	$current_dirname = dirname(__FILE__);
+
+	$d2 = new Datetime("now");
+	$dt = $d2->format('U');
+	mkdir($current_dirname. "/post/$dt");
 
 	if ($_FILES['upload']['name']) {
 		// Count # of uploaded files in array
 		$total = count($_FILES['upload']['name']);
 	} 
-		
+
 	// Loop through each file
-	for( $i=0 ; $i < $total ; $i++ ) {
+	for( $i=0 ; $i < 5 ; $i++ ) {
 
 	  //Get the temp file path
 	  $tmpFilePath = $_FILES['upload']['tmp_name'][$i];
 
 	  //Make sure we have a file path
 	  if ($tmpFilePath != ""){
+
 	    //Setup our new file path
-	    $newFilePath = $current_dirname. "/post/" . $_FILES['upload']['name'][$i];
+	    $newFilePath = $current_dirname. "/post/$dt/". $_FILES['upload']['name'][$i];
 
 	    //Upload the file into the temp dir
 	    if(move_uploaded_file($tmpFilePath, $newFilePath)) {
@@ -113,6 +135,15 @@ function test_handle_post(){
 	    }
 	  }
 	}
+	
+	for( $i=0 ; $i < $total ; $i++ ) {
+	  $tmpFilePath = $_FILES['upload']['tmp_name'][$i];
+	  if ($tmpFilePath != ""){
+	    $newFilePath = $current_dirname. "/post/$dt/". $_FILES['upload']['name'][$i];
+	    move_uploaded_file($tmpFilePath, $newFilePath);
+	  }
+	}
+
 }
  
 function add_custom_page() {
@@ -131,6 +162,7 @@ function add_custom_post($file_path, $file_name, $prev, $next) {
     $myfile = fopen($file_path, "r") or die("Unable to open file!");
 	$file_content = fread($myfile,filesize($file_path));
 	fclose($myfile);
+	$spintax = new Spintax();
     // Create post object
     if ($next == null)
     	$file_content = $file_content. "<div><a href='http://localhost/wordpressTest'>$prev</a></div>";
@@ -142,13 +174,18 @@ function add_custom_post($file_path, $file_name, $prev, $next) {
     $csv = fopen(dirname(__FILE__). "/post/target.csv", 'r');
 	while (($line = fgetcsv($csv)) !== FALSE) {
 		$file_content = str_replace($line[0], "<a href='$line[1]'>$line[0]</a>", $file_content);
+		/* EXAMPLE USAGE */
+
+		$file_content = $spintax->process($file_content);
 	}
 	fclose($csv);
 
+	$file_name = str_replace(".txt", "", $file_name);
     $my_post = array(
-		'post_title'    => wp_strip_all_tags( "$file_name" ),
+		'post_title'    => "$file_name",
 		'post_content'  => "$file_content",
 		'post_type'     => 'post',
+		'post_status' 	=> 'publish',
     );
 
     // Insert the post into the database
