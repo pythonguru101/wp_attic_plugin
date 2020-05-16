@@ -43,8 +43,8 @@ function csv_init(){
     </form>
     <h2>Or you can input target keyword and URL.</h2>
     <form id="target_form2" method="post" enctype="multipart/form-data">
-        <input name="target_keyword" type="text" />
-        <input name="target_url" type="text" />
+        Keyword:<input name="target_keyword" type="text" />
+        URL:<input name="target_url" type="text" />
         <?php submit_button('Submit') ?>
     </form>
 <?php
@@ -91,19 +91,43 @@ function test_init(){
     test_handle_post();
 ?>
     <h2>Please choose article files to upload.</h2>
-    <form  method="post" enctype="multipart/form-data">
+    <form  id="article_upload_form" method="post" enctype="multipart/form-data">
         <input name="upload[]" type="file" multiple="multiple" />
         <?php submit_button('Upload') ?>
+    </form>
+    <h2>You can change target keyword here.</h2>
+    <form id="target_change_form" method="post" enctype="multipart/form-data">
+        Keyword: <input name="keyword_to_change" type="text" />
+        <?php submit_button('Submit') ?>
     </form>
 <?php
 }
  
 function test_handle_post(){
 	$current_dirname = dirname(__FILE__);
-
+	$target_url = "";
 	$d2 = new Datetime("now");
 	$dt = $d2->format('U');
 	mkdir($current_dirname. "/post/$dt");
+
+	if (isset($_POST["keyword_to_change"]))
+	{
+		$fp1 = fopen(dirname(__FILE__)."/post/target.csv", "r");
+		while( false !== ( $data = fgetcsv($fp1) ) ){ 
+			$target_url = $data[1];
+		}
+		fclose($fp1);
+
+		$val = array($_POST["keyword_to_change"], $target_url);
+		$fp2 = fopen(dirname(__FILE__)."/post/target.csv", "wb");
+		fputcsv($fp2, $val);
+		fclose($fp2);
+
+		// UPDATE `wp_posts`
+  // 			SET `post_content` =
+  // 			REGEXP_REPLACE( post_content, '<pre class="brush: php;">', '<pre>' );
+	}
+
 
 	if ($_FILES['upload']['name']) {
 		// Count # of uploaded files in array
