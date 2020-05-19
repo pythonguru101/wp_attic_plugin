@@ -24,35 +24,89 @@ class Spintax
     }
 }
 
-if (file_exists(dirname(__FILE__). "/post/target.csv"))
-	add_action('admin_menu', 'test_plugin_setup_menu');
-else
-	add_action('admin_menu', 'csv_plugin_setup_menu');
+//if (file_exists(dirname(__FILE__). "/post/target.csv"))
+add_action('admin_menu', 'test_plugin_setup_menu');
+//else
+add_action('admin_menu', 'csv_plugin_setup_menu');
 
 function csv_plugin_setup_menu(){
-    add_menu_page( 'Attic Plugin Page', 'Attic Plugin', 'manage_options', 'test-plugin', 'csv_init' );
+    add_menu_page( 'Attic-Target', 'Attic-1', 'manage_options', 'test-plugin1', 'csv_init' );
 }
 
 function csv_init(){
     csv_handle_post();
 ?>
-    <h2>Please choose target csv file to upload.</h2>
-    <form id="target_form1" method="post" enctype="multipart/form-data">
-        <input name="upload[]" type="file" multiple="multiple" />
-        <?php submit_button('Upload') ?>
-    </form>
-    <h2>Or you can input target keyword and URL.</h2>
-    <form id="target_form2" method="post" enctype="multipart/form-data">
-        Keyword:<input name="target_keyword" type="text" />
-        URL:<input name="target_url" type="text" />
-        <?php submit_button('Submit') ?>
-    </form>
+	<div class="notice notice-info">
+		<h3>Please input target keyword and URL before uploading articles.</h3>
+	    <form id="target_form2" method="post" enctype="multipart/form-data">
+	    	<p>Target Keyword:</p>
+	        <input name="target_keyword" type="text" />
+	        <p>Target URL:</p>
+	        <input name="target_url" type="text" />
+	        <?php submit_button('Submit') ?>
+	    </form>
+	</div>
+	<div class="notice notice-info">
+	    <h3>You can change target keyword here.</h3>
+	    <form id="target_change_form" method="post" enctype="multipart/form-data">
+	    	<p>Target keyword to change:</p>
+	        <input name="keyword_to_change" type="text" />
+	        <?php submit_button('Submit') ?>
+	    </form>
+	</div>
+	<div class="notice notice-info">
+	    <h3>Choose target csv file to upload.</h3>
+	    <form id="target_form1" method="post" enctype="multipart/form-data">
+	        <input name="upload[]" type="file" multiple="multiple" />
+	        <?php submit_button('Upload') ?>
+	    </form>
+	</div>
 <?php
 }
 
 function csv_handle_post(){
 	$total = 0;
+	$original_target_keyword = '';
 	$current_dirname = dirname(__FILE__);
+
+	if (isset($_POST["keyword_to_change"]))
+	{
+		$fp1 = fopen(dirname(__FILE__)."/post/target.csv", "r");
+		while( false !== ( $data = fgetcsv($fp1) ) ){ 
+			$original_target_keyword = $data[0];
+			$target_url = $data[1];
+		}
+		fclose($fp1);
+
+		$val = array($_POST["keyword_to_change"], $target_url);
+		$fp2 = fopen(dirname(__FILE__)."/post/target.csv", "wb");
+		fputcsv($fp2, $val);
+		fclose($fp2);
+
+		$args = array(
+			'post_type' => array('post'/*,'page'*/),
+			'post_status' => 'publish',
+			'posts_per_page' => -1,
+			'ignore_sticky_posts' => true,
+		);
+		$qry = new WP_Query($args);
+		
+		// remove published posts
+		foreach ($qry->posts as $p) { 
+		    $id = $p->ID;
+		    $content = $p->post_content;
+		    $content = preg_replace("/$original_target_keyword/", $_POST["keyword_to_change"], $content, 1);
+
+		    // wp_delete_post($p->ID);
+		    $updated_post = array(
+				'ID'    => "$id",
+				'post_content'  => "$content",
+				'post_type'     => 'post',
+				'post_status' 	=> 'publish',
+		    );
+		    wp_update_post( $updated_post );
+		}
+	}
 
 	if ($_FILES['upload']['name']) {
 		// Count # of uploaded files in array
@@ -84,22 +138,19 @@ function csv_handle_post(){
 }
 
 function test_plugin_setup_menu(){
-    add_menu_page( 'Attic Plugin Page', 'Attic Plugin', 'manage_options', 'test-plugin', 'test_init' );
+    add_menu_page( 'Attic-Article', 'Attic-2', 'manage_options', 'test-plugin2', 'test_init' );
 }
  
 function test_init(){
     test_handle_post();
 ?>
-    <h2>Please choose article files to upload.</h2>
-    <form  id="article_upload_form" method="post" enctype="multipart/form-data">
-        <input name="upload[]" type="file" multiple="multiple" />
-        <?php submit_button('Upload') ?>
-    </form>
-    <h2>You can change target keyword here.</h2>
-    <form id="target_change_form" method="post" enctype="multipart/form-data">
-        Keyword: <input name="keyword_to_change" type="text" />
-        <?php submit_button('Submit') ?>
-    </form>
+	<div class="notice notice-info">
+	    <h3>Please choose article files to upload.</h3>
+	    <form  id="article_upload_form" method="post" enctype="multipart/form-data">
+	        <input name="upload[]" type="file" multiple="multiple" />
+	        <?php submit_button('Upload') ?>
+	    </form>
+	</div>
 <?php
 }
  
@@ -110,28 +161,11 @@ function test_handle_post(){
 	$dt = $d2->format('U');
 	mkdir($current_dirname. "/post/$dt");
 
-	if (isset($_POST["keyword_to_change"]))
-	{
-		$fp1 = fopen(dirname(__FILE__)."/post/target.csv", "r");
-		while( false !== ( $data = fgetcsv($fp1) ) ){ 
-			$target_url = $data[1];
-		}
-		fclose($fp1);
-
-		$val = array($_POST["keyword_to_change"], $target_url);
-		$fp2 = fopen(dirname(__FILE__)."/post/target.csv", "wb");
-		fputcsv($fp2, $val);
-		fclose($fp2);
-
-		// UPDATE `wp_posts`
-  // 			SET `post_content` =
-  // 			REGEXP_REPLACE( post_content, '<pre class="brush: php;">', '<pre>' );
-	}
-
 
 	if ($_FILES['upload']['name']) {
 		// Count # of uploaded files in array
 		$total = count($_FILES['upload']['name']);
+		shuffle($_FILES['upload']['name']);
 	} 
 
 	// Loop through each file
@@ -151,11 +185,21 @@ function test_handle_post(){
 
 	    	//Handle other code here
 	    	if ($i == 0)
-	    		add_custom_post($newFilePath, $_FILES['upload']['name'][$i], null,  $_FILES['upload']['name'][$i+1]);
+	    	{
+	    		$next = str_replace(".txt", "", $_FILES['upload']['name'][$i+1]);
+	    		add_custom_post($newFilePath, $_FILES['upload']['name'][$i], null,  $next);
+	    	}
 	    	if ($i == $total - 1)
-	    		add_custom_post($newFilePath, $_FILES['upload']['name'][$i], $_FILES['upload']['name'][$i-1], null);
+	    	{
+	    		$prev = str_replace(".txt", "", $_FILES['upload']['name'][$i-1]);
+	    		add_custom_post($newFilePath, $_FILES['upload']['name'][$i], $prev, null);
+	    	}
 	    	if ($i > 0 && $i < $total - 1)
-	    		add_custom_post($newFilePath, $_FILES['upload']['name'][$i], $_FILES['upload']['name'][$i-1], $_FILES['upload']['name'][$i+1]);
+	    	{
+	    		$prev = str_replace(".txt", "", $_FILES['upload']['name'][$i-1]);
+	    		$next = str_replace(".txt", "", $_FILES['upload']['name'][$i+1]);
+	    		add_custom_post($newFilePath, $_FILES['upload']['name'][$i], $prev, $next);
+	    	}
 	    }
 	  }
 	}
@@ -197,9 +241,10 @@ function add_custom_post($file_path, $file_name, $prev, $next) {
 
     $csv = fopen(dirname(__FILE__). "/post/target.csv", 'r');
 	while (($line = fgetcsv($csv)) !== FALSE) {
-		$file_content = str_replace($line[0], "<a href='$line[1]'>$line[0]</a>", $file_content);
-		/* EXAMPLE USAGE */
 
+		$file_content = preg_replace("/$line[0]/", "<a href='$line[1]'>$line[0]</a>", $file_content, 1);
+		break;
+		/* EXAMPLE USAGE */
 		$file_content = $spintax->process($file_content);
 	}
 	fclose($csv);
