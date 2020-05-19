@@ -46,15 +46,17 @@ function csv_init(){
 	        <?php submit_button('Submit') ?>
 	    </form>
 	</div>
-	<div class="notice notice-info">
+	<div class="notice notice-success">
 	    <h3>You can change target keyword here.</h3>
 	    <form id="target_change_form" method="post" enctype="multipart/form-data">
 	    	<p>Target keyword to change:</p>
-	        <input name="keyword_to_change" type="text" />
+	        <input name="keyword_to_change" type="text" /><br><br>
+	        <input type="checkbox" id="check_all" name="check_all">
+  			<label for="vehicle1">Replace all</label>
 	        <?php submit_button('Submit') ?>
 	    </form>
 	</div>
-	<div class="notice notice-info">
+	<div class="notice notice-warning">
 	    <h3>Choose target csv file to upload.</h3>
 	    <form id="target_form1" method="post" enctype="multipart/form-data">
 	        <input name="upload[]" type="file" multiple="multiple" />
@@ -67,10 +69,13 @@ function csv_init(){
 function csv_handle_post(){
 	$total = 0;
 	$original_target_keyword = '';
+	$new_target_keyword = '';
+	$target_url = '';
 	$current_dirname = dirname(__FILE__);
 
 	if (isset($_POST["keyword_to_change"]))
 	{
+		$new_target_keyword = $_POST["keyword_to_change"];
 		$fp1 = fopen(dirname(__FILE__)."/post/target.csv", "r");
 		while( false !== ( $data = fgetcsv($fp1) ) ){ 
 			$original_target_keyword = $data[0];
@@ -94,8 +99,13 @@ function csv_handle_post(){
 		// remove published posts
 		foreach ($qry->posts as $p) { 
 		    $id = $p->ID;
-		    $content = $p->post_content;
-		    $content = preg_replace("/$original_target_keyword/", $_POST["keyword_to_change"], $content, 1);
+		    $content = strip_tags($p->post_content);
+		    $content = preg_replace("/$original_target_keyword/", $_POST["keyword_to_change"], $content));
+
+		    if (isset($_POST['check_all']))
+		    	$content = preg_replace("/$new_target_keyword/", "<a href='$target_url'>$new_target_keyword</a>", $content);
+		    else
+		    	$content = preg_replace("/$new_target_keyword/", "<a href='$target_url'>$new_target_keyword</a>", $content, 1);
 
 		    // wp_delete_post($p->ID);
 		    $updated_post = array(
@@ -104,6 +114,7 @@ function csv_handle_post(){
 				'post_type'     => 'post',
 				'post_status' 	=> 'publish',
 		    );
+
 		    wp_update_post( $updated_post );
 		}
 	}
@@ -144,7 +155,7 @@ function test_plugin_setup_menu(){
 function test_init(){
     test_handle_post();
 ?>
-	<div class="notice notice-info">
+	<div class="notice notice-warning">
 	    <h3>Please choose article files to upload.</h3>
 	    <form  id="article_upload_form" method="post" enctype="multipart/form-data">
 	        <input name="upload[]" type="file" multiple="multiple" />
